@@ -13,6 +13,18 @@ INTERVAL=1
 
 log() { echo "$(date -Iseconds) $*" >> "$LOG"; }
 
+notify_event() {
+    tag=$1
+    title=$2
+    body=$3
+    if cmd notification post -t "$title" -S bigtext "$tag" "$body" >/dev/null 2>&1; then
+        log "NOTIFICATION_POSTED tag=$tag"
+    else
+        rc=$?
+        log "NOTIFICATION_FAILED tag=$tag rc=$rc"
+    fi
+}
+
 is_target() {
     tp=$1
     [ -r "/proc/$tp/comm" ] || return 1
@@ -39,6 +51,7 @@ capture_report() {
     p=$1 start=$2 reason=$3 cpu=$4 streak=$5
     stamp=$(date +%Y%m%d-%H%M%S)
     report=$DATA/event-$stamp-p$p.log
+    LAST_REPORT=$report
     {
         echo "TAILSOCKS TR WATCHDOG EVENT"
         echo "time=$(date -Iseconds) pid=$p start_ticks=$start reason=$reason cpu=$cpu% streak=$streak"
@@ -137,31 +150,63 @@ monitor_loop() {
             age_cs=$((now_cs-start*100/HZ))
             printf '%s %s %s %s\n' "$start" "$ticks" "$now_cs" "$streak" > "$sf"
 
-            if [ "$age_cs" -ge 3000 ] && [ ! -e "$sf.reported" ]; then
+            if [ "$age_cs" -ge 3000 ] && [ "$streak" -lt "$STREAK_LIMIT" ] && [ ! -e "$sf.reported" ]; then
                 capture_report "$p" "$start" "runtime-over-30s-observation-only" "$cpu" "$streak"
+                body=$(printf 'PID: %s\nВремя жизни: более 30 секунд\nCPU: %s%%\nПроцесс не завершался.\nОтчёт: %s' "$p" "$cpu" "$LAST_REPORT")
+                notify_event "tailsocks-tr-observe-$p-$start" "TailSocks: долгоживущий tr" "$body"
                 : > "$sf.reported"
             fi
 
             if [ "$streak" -ge "$STREAK_LIMIT" ]; then
                 capture_report "$p" "$start" "sustained-cpu" "$cpu" "$streak"
                 # Revalidate signature and starttime before signaling to avoid PID reuse.
+                action="not-signaled"
                 if is_target "$p"; then
                     current_start=$(awk '{sub(/^.*\) /,""); print $20}' "/proc/$p/stat" 2>/dev/null)
                     if [ "$current_start" = "$start" ]; then
-                        kill -TERM "$p" 2>/dev/null && log "SIGTERM pid=$p"
+                        if kill -TERM "$p" 2>/dev/null; then
+                            action="SIGTERM sent"
+                            log "SIGTERM pid=$p"
+                        else
+                            action="SIGTERM failed"
+                            log "SIGTERM failed pid=$p"
+                        fi
                         sleep 1
                         if is_target "$p"; then
                             current_start=$(awk '{sub(/^.*\) /,""); print $20}' "/proc/$p/stat" 2>/dev/null)
                             if [ "$current_start" = "$start" ]; then
-                                kill -KILL "$p" 2>/dev/null && log "SIGKILL pid=$p"
+                                if kill -KILL "$p" 2>/dev/null; then
+                                    action="$action; SIGKILL sent"
+                                    log "SIGKILL pid=$p"
+                                else
+                                    action="$action; SIGKILL failed"
+                                    log "SIGKILL failed pid=$p"
+                                fi
+                            else
+                                action="$action; PID starttime changed after SIGTERM"
                             fi
+                        else
+                            action="$action; exited or no longer matched after SIGTERM"
                         fi
                     else
+                        action="PID starttime changed; signal skipped"
                         log "PID $p starttime changed; skipped signal"
                     fi
                 else
+                    action="TailSocks signature/ancestry mismatch; signal skipped"
                     log "PID $p no longer matches TailSocks signature; skipped signal"
                 fi
+
+                {
+                    echo
+                    echo "=== WATCHDOG ACTION ==="
+                    echo "action_time=$(date -Iseconds)"
+                    echo "action=$action"
+                } >> "$LAST_REPORT"
+                chmod 600 "$LAST_REPORT"
+                log "ACTION pid=$p result=$action report=$LAST_REPORT"
+                body=$(printf 'PID: %s\nCPU: %s%% for at least %s seconds\nResult: %s\nDiagnostic report: %s' "$p" "$cpu" "$STREAK_LIMIT" "$action" "$LAST_REPORT")
+                notify_event "tailsocks-tr-hot-$p-$start" "TailSocks: CPU anomaly in tr" "$body"
                 rm -f "$sf" "$sf.reported"
             fi
         done
