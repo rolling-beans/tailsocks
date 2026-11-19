@@ -57,6 +57,7 @@ Commands on device:
 ```sh
 /system/bin/sh /data/local/tmp/tailsocks-tr-watchdog.sh status
 /system/bin/sh /data/local/tmp/tailsocks-tr-watchdog.sh tail
+/system/bin/sh /data/local/tmp/tailsocks-tr-watchdog.sh test-notification
 /system/bin/sh /data/local/tmp/tailsocks-tr-watchdog.sh stop
 ```
 
