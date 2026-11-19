@@ -49,7 +49,7 @@ capture_report() {
         echo "uptime=$(cat /proc/uptime)"
         echo
         echo "=== PROCESS TABLE ==="
-        ps -AZ -o LABEL,PID,PPID,USER,STAT,ELAPSED,PCPU,PMEM,ARGS 2>&1 | grep -E '(^ *LABEL|tr|tailscaled|libtailscale)' | grep -v grep | head -160
+        ps -A -o PID,PPID,UID,STAT,ELAPSED,PCPU,PMEM,ARGS 2>&1 | grep -E '(^ *LABEL|tr|tailscaled|libtailscale)' | grep -v grep | head -160
         echo
         echo "=== TARGET ==="
         cat "/proc/$p/status" 2>&1
@@ -190,7 +190,7 @@ start_monitor() {
             echo "RUNNING pid=$oldpid"; exit 0
         fi
     fi
-    nohup /system/bin/sh "$SCRIPT" monitor >> "$LOG" 2>&1 </dev/null &
+    /system/bin/toybox nohup /system/bin/sh "$SCRIPT" monitor >> "$LOG" 2>&1 </dev/null &
     newpid=$!; echo "$newpid" > "$PIDFILE"; chmod 600 "$PIDFILE"
     sleep 1
     if kill -0 "$newpid" 2>/dev/null; then
