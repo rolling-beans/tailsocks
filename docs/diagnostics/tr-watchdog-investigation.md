@@ -74,3 +74,18 @@ Event notifications are posted locally through `/system/bin/cmd notification pos
 - No Termux:API dependency, external app permission, network connection, or persistent Android setting is required.
 
 Validated on-device with a test notification posted as UID 2000. The shell notification record was active with default channel importance. If the user has disabled the Shell app's notifications or the `Shell command` channel, Android may suppress visual alerts; Do Not Disturb can also affect presentation.
+## Notification deployment (2026-11-19)
+
+The watchdog now posts alerts through `/system/bin/cmd notification post` executed as Android shell UID 2000 (`su 2000 -c`). This ROM rejects the same command when run as root UID 0, so the UID switch is required. No Termux:API dependency or external-app permission is used.
+
+Notification channel: `Shell command` (`shell_cmd`), default importance. Alerts use big-text style and a unique tag per process PID/starttime. The long-runtime observation event says the process was not terminated; the sustained-CPU event is sent after the action and includes the actual signal result. Both include the report path. `watchdog.log` records `NOTIFICATION_POSTED` or `NOTIFICATION_FAILED`.
+
+A `test-notification` command was added for manual verification:
+
+```sh
+/system/bin/sh /data/local/tmp/tailsocks-tr-watchdog.sh test-notification
+```
+
+On-device test succeeded. Android event log recorded `notification_enqueue` and `notification_visibility` for the watchdog test notification, confirming it reached the visible notification surface. The channel importance is 3 (DEFAULT).
+
+Updated deployment: 2026-11-19 15:59:36 +03:00; monitor PID 31474; `CLK_TCK=100`; script SHA-256 `6617c8a0731ab45e8379e53fb38904934222e826a97c8427707bbc25e4ffb324`.
