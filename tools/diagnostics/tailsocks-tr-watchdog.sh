@@ -272,6 +272,14 @@ stop_monitor() {
     rm -f "$PIDFILE"
 }
 
+test_notification() {
+    [ "$(id -u)" = 0 ] || { echo "ERROR: run as root" >&2; exit 2; }
+    mkdir -p "$DATA"
+    chmod 700 "$DATA"
+    notify_event "tailsocks-tr-watchdog-test" "TailSocks watchdog: test" "Оповещения работают. При обнаружении аномального tr здесь появятся PID, причина, результат обработки и путь к диагностическому отчёту."
+    tail -1 "$LOG"
+}
+
 status_monitor() {
     if [ -r "$PIDFILE" ]; then
         read p < "$PIDFILE"
@@ -294,6 +302,7 @@ case "$1" in
     stop) stop_monitor ;;
     status) status_monitor ;;
     tail) tail -n 100 "$LOG" 2>/dev/null ;;
+    test-notification) test_notification ;;
     monitor) monitor_loop ;;
-    *) echo "Usage: $SCRIPT {start|stop|status|tail|monitor}"; exit 2 ;;
+    *) echo "Usage: $SCRIPT {start|stop|status|tail|test-notification|monitor}"; exit 2 ;;
 esac
