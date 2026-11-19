@@ -61,3 +61,4 @@ Commands on device:
 ```
 
 Event reports are written before the target receives SIGTERM. A target that remains after one second receives SIGKILL only after the PID, exact argv signature, TailSocks ancestry, and starttime are checked again.
+Additional live safety check: a synthetic, idle `tr '\0' '\n'` process launched from an unrelated SSH shell survived while the watchdog was active; no anomaly was logged. This validates the fail-closed ancestry filter against that unrelated process shape, but does not yet exercise the CPU-triggered kill path.
