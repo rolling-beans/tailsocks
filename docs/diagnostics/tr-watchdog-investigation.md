@@ -44,3 +44,20 @@ Linux procfs defines `utime` as field 14, `stime` as field 15 and `starttime` as
 ## Known limitation
 
 If `su` or its shell has already exited and `tr` has been reparented to PID 1, the strict ancestry test ignores it. This is deliberate for the first deployment. If observed, capture its PPID, command line, cgroup, SELinux context and FDs, then extend the matcher from evidence rather than killing every root-owned `tr`.
+## Runtime observation and deployment (2026-11-19)
+
+One live runaway instance was previously observed as PID 31849, PPID 31806, root UID, SELinux context `u:r:ksu:s0`, argv `tr '\0' '\n'`. At capture it had existed for about 2 h 6 min 51 s, with about 91.6 min accumulated CPU time and a sampled average near 72.2% of one logical CPU. Its ancestry included the TailSocks app process `io.github.bropines.tailscaled`.
+
+Watchdog deployed to the OnePlus 13 at `/data/local/tmp/tailsocks-tr-watchdog.sh`, root-owned mode 0700. Runtime data directory: `/data/local/tmp/tailsocks-tr-watchdog/`, mode 0700. Monitor started at 2026-11-19 15:40:01 +03:00, PID 12761; `CLK_TCK=100`. The active script SHA-256 on device is `4028cfa00a223800ec56c328005533c178cda3ab67ba2ea509431404248e8ae6`.
+
+Validation performed: Android `/system/bin/sh -n` passed; synthetic `tr '\0' '\n'` argv-byte signature matched; `/proc/PID/stat` parser returned expected PPID/ticks/starttime fields; Toybox `ps` output uses `%CPU` and `%MEM`; watchdog status confirmed RUNNING. Initial measured monitor CPU was about 0.2–0.3% over short sampling windows. No TailSocks target was running during the first deployment checks, so actual anomaly-trigger/termination remains to be validated on a real recurrence.
+
+Commands on device:
+
+```sh
+/system/bin/sh /data/local/tmp/tailsocks-tr-watchdog.sh status
+/system/bin/sh /data/local/tmp/tailsocks-tr-watchdog.sh tail
+/system/bin/sh /data/local/tmp/tailsocks-tr-watchdog.sh stop
+```
+
+Event reports are written before the target receives SIGTERM. A target that remains after one second receives SIGKILL only after the PID, exact argv signature, TailSocks ancestry, and starttime are checked again.
