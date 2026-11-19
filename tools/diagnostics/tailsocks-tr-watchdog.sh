@@ -49,7 +49,7 @@ capture_report() {
         echo "uptime=$(cat /proc/uptime)"
         echo
         echo "=== PROCESS TABLE ==="
-        ps -A -o PID,PPID,UID,STAT,ELAPSED,PCPU,PMEM,ARGS 2>&1 | grep -E '(^ *LABEL|tr|tailscaled|libtailscale)' | grep -v grep | head -160
+        ps -A -o PID,PPID,UID,STAT,ELAPSED,%CPU,%MEM,ARGS 2>&1 | grep -E '(^ *LABEL|tr|tailscaled|libtailscale)' | grep -v grep | head -160
         echo
         echo "=== TARGET ==="
         cat "/proc/$p/status" 2>&1
@@ -231,7 +231,7 @@ status_monitor() {
     fi
     echo "LOG=$LOG"
     echo "REPORTS=$DATA/event-*.log"
-    ps -A -o PID,PPID,STAT,ELAPSED,PCPU,ARGS 2>/dev/null | grep -E 'tr-watchdog|[[:space:]]tr([[:space:]]|$)' | grep -v grep
+    ps -A -o PID,PPID,STAT,ELAPSED,%CPU,ARGS 2>/dev/null | grep -E 'tr-watchdog|[[:space:]]tr([[:space:]]|$)' | grep -v grep
 }
 
 case "$1" in
