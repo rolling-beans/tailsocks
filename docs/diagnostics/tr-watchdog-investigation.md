@@ -62,3 +62,15 @@ Commands on device:
 
 Event reports are written before the target receives SIGTERM. A target that remains after one second receives SIGKILL only after the PID, exact argv signature, TailSocks ancestry, and starttime are checked again.
 Additional live safety check: a synthetic, idle `tr '\0' '\n'` process launched from an unrelated SSH shell survived while the watchdog was active; no anomaly was logged. This validates the fail-closed ancestry filter against that unrelated process shape, but does not yet exercise the CPU-triggered kill path.
+## Android notifications
+
+Event notifications are posted locally through `/system/bin/cmd notification post`, executed as Android shell UID 2000 via `su 2000 -c`. Running the command as root UID 0 was tested and rejected by this ROM's notification path; the shell UID route was verified to create an active `com.android.shell` notification.
+
+- Notification channel: `shell_cmd` (Shell command), Android default importance.
+- A matching `tr` older than 30 seconds produces an observation notification stating that no process was terminated.
+- A sustained-CPU event produces a notification after the signal attempt, including the actual action result and report path.
+- Notifications use a big-text style and a unique tag per PID/starttime, so separate events remain distinguishable.
+- Notification success/failure is recorded in `watchdog.log` as `NOTIFICATION_POSTED` or `NOTIFICATION_FAILED`.
+- No Termux:API dependency, external app permission, network connection, or persistent Android setting is required.
+
+Validated on-device with a test notification posted as UID 2000. The shell notification record was active with default channel importance. If the user has disabled the Shell app's notifications or the `Shell command` channel, Android may suppress visual alerts; Do Not Disturb can also affect presentation.
