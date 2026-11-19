@@ -13,11 +13,21 @@ INTERVAL=1
 
 log() { echo "$(date -Iseconds) $*" >> "$LOG"; }
 
+quote_arg() {
+    printf "'"
+    printf '%s' "$1" | sed "s/'/'\\\\''/g"
+    printf "'"
+}
+
 notify_event() {
     tag=$1
     title=$2
     body=$3
-    if cmd notification post -t "$title" -S bigtext "$tag" "$body" >/dev/null 2>&1; then
+    qtag=$(quote_arg "$tag")
+    qtitle=$(quote_arg "$title")
+    qbody=$(quote_arg "$body")
+    notify_cmd="/system/bin/cmd notification post -i '@android:drawable/ic_dialog_info' -t $qtitle -S bigtext $qtag $qbody"
+    if su 2000 -c "$notify_cmd" >/dev/null 2>&1; then
         log "NOTIFICATION_POSTED tag=$tag"
     else
         rc=$?
@@ -206,7 +216,7 @@ monitor_loop() {
                 chmod 600 "$LAST_REPORT"
                 log "ACTION pid=$p result=$action report=$LAST_REPORT"
                 body=$(printf 'PID: %s\nCPU: %s%% for at least %s seconds\nResult: %s\nDiagnostic report: %s' "$p" "$cpu" "$STREAK_LIMIT" "$action" "$LAST_REPORT")
-                notify_event "tailsocks-tr-hot-$p-$start" "TailSocks: CPU anomaly in tr" "$body"
+                notify_event "tailsocks-tr-hot-$p-$start" "TailSocks: высокая нагрузка tr" "$body"
                 rm -f "$sf" "$sf.reported"
             fi
         done
